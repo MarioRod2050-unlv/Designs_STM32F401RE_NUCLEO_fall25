@@ -1,0 +1,126 @@
+#include "main.h"		//Including libraries
+#include "i2c.h"		//must be downloaded through drivers 
+#include "usart.h"
+#include "gpio.h"
+#include <string.h>
+#include <stdio.h>
+#include "lsm6dsv16x_reg.h"		//driver
+#include "lis2mdl_reg.h"		//diver
+
+#define LSM6DSV16X_ADDR  0x6B  //IMU I2address 7 bits
+#define LIS2MDL_ADDR     0x1E  //Magnetometer I2C address 7 bits
+
+stmdev_ctx_t dev_ctx_imu;
+stmdev_ctx_t dev_ctx_mag;
+char csvLine[128];
+
+/* ---- Platform I2C helpers ---- */
+int32_t platform_write(void *handle, uint8_t reg, const uint8_t *bufp, uint16_t len) {
+    return HAL_I2C_Mem_Write(&hi2c1, (LSM6DSV16X_ADDR << 1), reg,
+    I2C_MEMADD_SIZE_8BIT, (uint8_t*)bufp, len, HAL_MAX_DELAY);
+}
+int32_t platform_read(void *handle, uint8_t reg, uint8_t *bufp, uint16_t len) {
+    return HAL_I2C_Mem_Read(&hi2c1, (LSM6DSV16X_ADDR << 1), reg,
+    I2C_MEMADD_SIZE_8BIT, bufp, len, HAL_MAX_DELAY);
+}
+int32_t platform_write_mag(void *handle, uint8_t reg, const uint8_t *bufp, uint16_t len) {
+    return HAL_I2C_Mem_Write(&hi2c1, (LIS2MDL_ADDR << 1), reg,
+    I2C_MEMADD_SIZE_8BIT, (uint8_t*)bufp, len, HAL_MAX_DELAY);
+}
+int32_t platform_read_mag(void *handle, uint8_t reg, uint8_t *bufp, uint16_t len) {
+    return HAL_I2C_Mem_Read(&hi2c1, (LIS2MDL_ADDR << 1), reg,
+    I2C_MEMADD_SIZE_8BIT, bufp, len, HAL_MAX_DELAY);
+}
+
+void SystemClock_Config(void);
+int main(void){
+  HAL_Init();
+  SystemClock_Config();
+  MX_GPIO_Init();
+  MX_I2C1_Init();
+  MX_USART2_UART_Init();
+
+  /*IMU context*/
+  dev_ctx_imu.write_reg = (stmdev_write_ptr) platform_write;
+  dev_ctx_imu.read_reg  = (stmdev_read_ptr) platform_read;
+  dev_ctx_imu.handle    = &hi2c1;
+
+  /*Magnetometer context*/
+  dev_ctx_mag.write_reg = (stmdev_write_ptr) platform_write_mag;
+  dev_ctx_mag.read_reg  = (stmdev_read_ptr) platform_read_mag;
+  dev_ctx_mag.handle    = &hi2c1;
+
+  /*Configure IMU */
+  lsm6dsv16x_xl_full_scale_set(&dev_ctx_imu, LSM6DSV16X_8g);
+  lsm6dsv16x_gy_full_scale_set(&dev_ctx_imu, LSM6DSV16X_2000dps);
+  lsm6dsv16x_xl_data_rate_set(&dev_ctx_imu, LSM6DSV16X_ODR_AT_120Hz);
+  lsm6dsv16x_gy_data_rate_set(&dev_ctx_imu, LSM6DSV16X_ODR_AT_120Hz);
+
+  /*Configure Magnetometer*/
+  lis2mdl_data_rate_set(&dev_ctx_mag, LIS2MDL_ODR_100Hz);
+
+  /*Print header once*/
+  sprintf(csvLine, "ax,ay,az,gx,gy,gz,mx,my,mz\r\n");
+  HAL_UART_Transmit(&huart2, (uint8_t*)csvLine, strlen(csvLine), HAL_MAX_DELAY);
+
+  while (1)
+  {
+    int16_t acc_raw[3] = {0}, gyro_raw[3] = {0}, mag_raw[3] = {0};
+
+    /* Read raw values directly */
+    lsm6dsv16x_acceleration_raw_get(&dev_ctx_imu, acc_raw);
+    lsm6dsv16x_angular_rate_raw_get(&dev_ctx_imu, gyro_raw);
+    lis2mdl_magnetic_raw_get(&dev_ctx_mag, mag_raw);
+
+    /*Output as CSV*/
+    sprintf(csvLine, "%d,%d,%d,%d,%d,%d,%d,%d,%d\r\n",
+            acc_raw[0], acc_raw[1], acc_raw[2],
+            gyro_raw[0], gyro_raw[1], gyro_raw[2],
+            mag_raw[0], mag_raw[1], mag_raw[2]);
+
+    HAL_UART_Transmit(&huart2, (uint8_t*)csvLine, strlen(csvLine), HAL_MAX_DELAY);
+
+    HAL_Delay(10); // ~100Hz
+  }
+}
+
+/*System Clock Configuration */
+void SystemClock_Config(void)
+{
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+  __HAL_RCC_PWR_CLK_ENABLE();
+  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE2);
+
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+  RCC_OscInitStruct.PLL.PLLM = 16;
+  RCC_OscInitStruct.PLL.PLLN = 336;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV4;
+  RCC_OscInitStruct.PLL.PLLQ = 7;
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
+    Error_Handler();
+  }
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+  |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+  
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK) {
+    Error_Handler();
+  }
+}
+
+void Error_Handler(void)
+{
+  __disable_irq();
+  while (1) { 
+  }
+}
