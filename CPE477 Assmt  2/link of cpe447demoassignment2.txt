@@ -1,0 +1,3 @@
+https://github.com/MarioRod2050-unlv/Designs_STM32F401RE_NUCLEO_fall25/tree/895ae06641d804ecd019234b822562bfaef3f3df/CPE477%20Assmt%20%202
+
+link of demo video 
