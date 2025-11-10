@@ -1,0 +1,75 @@
+{
+    "accelerometer_fs": "2 g",
+    "accelerometer_odr": "30 Hz",
+    "datalogs": [
+        {
+            "filename": "Desktop/dessign 3/idle.csv",
+            "label": "idle"
+        },
+        {
+            "filename": "Desktop/dessign 3/left_right.csv",
+            "label": "left_right"
+        },
+        {
+            "filename": "Desktop/dessign 3/up_down.csv",
+            "label": "up_down"
+        },
+        {
+            "filename": "Desktop/dessign 3/walking.csv",
+            "label": "walking"
+        }
+    ],
+    "decision_tree_count": "1",
+    "dectrees": [
+        {
+            "filename": "ST_decision_tree_20251110_000659_148.txt",
+            "max_depth": 2047,
+            "metaclassifier": [
+                0,
+                0,
+                0,
+                0
+            ],
+            "min_samples_leaf": 1,
+            "results": [
+                {
+                    "label": "idle",
+                    "value": 0
+                },
+                {
+                    "label": "left_right",
+                    "value": 4
+                },
+                {
+                    "label": "up_down",
+                    "value": 8
+                },
+                {
+                    "label": "walking",
+                    "value": 12
+                }
+            ],
+            "test_train_split": 1
+        }
+    ],
+    "features": [
+    ],
+    "features_output_filename": "C:/Users/Mario/features.arff",
+    "filters": [
+    ],
+    "gyroscope_fs": "2000 dps",
+    "gyroscope_odr": "30 Hz",
+    "input_type": "accelerometer+gyroscope",
+    "json_format": {
+        "type": "mlc_settings",
+        "version": "1.0"
+    },
+    "max_dectrees": 4,
+    "max_results_per_dt": 16,
+    "mlc_odr": "30 Hz",
+    "name": "LSM6DSV16X",
+    "subgroups_per_dt": 4,
+    "thresh_accu_to_take_default": 0.05,
+    "thresh_n_percentage_default": 0.05,
+    "window_length": "60"
+}
